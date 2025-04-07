@@ -102,63 +102,13 @@ for i in range(wnsub):
 
 
 # Search for smallest proof size:
-# 1. Put the whole witness in the Ajtai part.
-# 2. Find the subvector v of largest l2-norm in the Ajtai part and move v to the BDLOP part.
-# 3. If the proof size decreased, go back to 2. Otherwise, move v back to the Ajtai part and stop.
+# Modified to keep l2-norm bounded elements in Ajtai part
 ajtai = [i for i in range(wnsub)]  # list of subvectors in Ajtai part
 bdlop = []  # list of subvectors in BDLOP part
 m1 = k*wdim     # set length of vector s1 (committed in Ajtai part)
 l = k*0         # set length of vector m (committed in BDLOP part)
 # set l2-norm bound on vector s1
 alpha = ceil(sqrt(sum(wl2_[i] ** 2 for i in ajtai)))
-
-verbose = 0
-code = 0
-loaded = 1
-codegen_err = 0
-load("lnp-tbox-codegen.sage")
-proof_bits_ = proof_bits
-
-
-while True:
-    maxval = 0
-    maxidx = 0
-    for i in ajtai:
-        if wl2_[i] > maxval:
-            maxval = wl2_[i]
-            maxidx = i
-
-    ajtai_prev = ajtai.copy()
-    bdlop_prev = bdlop.copy()
-    m1_prev = m1
-    l_prev = l
-    alpha_prev = alpha
-
-    ajtai.remove(maxidx)
-    bdlop = [i for i in bdlop if i < maxidx] + \
-        [maxidx] + [i for i in bdlop if i > maxidx]
-    m1 -= k*len(wpart[maxidx])
-    l += k*len(wpart[maxidx])
-    alpha = ceil(sqrt(sum(wl2_[i] ** 2 for i in ajtai)))
-
-    verbose = 0
-    code = 0
-    loaded = 1
-    codegen_err = 0
-    load("lnp-tbox-codegen.sage")
-
-    # break  # XXX break here to put s1,s2 in blindsig P2 into BDLOP. doesnt work with params1
-
-    if proof_bits < proof_bits_ and codegen_err == 0:
-        proof_bits_ = proof_bits
-    else:
-        # XXXproof_bits_ = proof_bits
-        ajtai = ajtai_prev
-        bdlop = bdlop_prev
-        m1 = m1_prev
-        l = l_prev
-        alpha = alpha_prev
-        break
 
 verbose = 1
 code = 1
@@ -174,20 +124,17 @@ Es_indices = []
 for i in ajtai:
     if wbin[i] == 1:
         Ps_indices += list(range(len(s1_indices),
-                                 len(s1_indices)+len(wpart[i])))
-    if wl2[i] > 0:
+                               len(s1_indices)+len(wpart[i])))
+    if wl2[i] > 0:  # Keep l2-norm bounded elements in Ajtai part
         Es_indices += [list(range(len(s1_indices),
-                                  len(s1_indices)+len(wpart[i])))]
+                              len(s1_indices)+len(wpart[i])))]
     s1_indices += wpart[i]
+
 # indices of elements of w that go to m
 m_indices = []
-Em_indices = []
+Em_indices = []  # This will remain empty since all l2-norm bounds are in Ajtai
 for i in bdlop:
-    # cant put binary subvecs in ajtai (Pm not implemented)
-    assert wbin[i] == 0
-    if wl2[i] > 0:
-        Em_indices += [list(range(len(s1_indices),
-                                  len(s1_indices)+len(wpart[i])))]
+    assert wbin[i] == 0  # can't put binary subvecs in BDLOP
     m_indices += wpart[i]
 
 # to lower ring deg
@@ -205,15 +152,6 @@ for j in Es_indices:
     tmp2 += [tmp3]
 Es_indices = tmp2
 Es_indices.sort()
-
-tmp2 = []
-for j in Em_indices:
-    tmp3 = []
-    for i in j:
-        tmp3 += list(range(i*k, i*k+k))
-    tmp2 += [tmp3]
-Em_indices = tmp2
-Em_indices.sort()
 
 out = ""
 
@@ -245,26 +183,6 @@ else:
     out += f"}};\n"
     out += f"static const unsigned int {vname}_Es_nrows[{len(Es_indices)}] = {intlist2intarray([len(i) for i in Es_indices])};\n"
 
-vname_Em = []
-for i in range(len(Em_indices)):
-    _Em_indices = Em_indices[i]
-    if _Em_indices == 0:
-        vname_Em += [f"NULL"]
-    else:
-        out += f"static const unsigned int {vname}_Em{i}[{len(_Em_indices)}] = {intlist2intarray(_Em_indices)};\n"
-        vname_Em += [f"{vname}_Em{i}"]
-if Em_indices == []:
-    strEm = "NULL"
-    strEm_nrows = "NULL"
-else:
-    strEm = f"{vname}_Es"
-    strEm_nrows = f"{vname}_Es_nrows"
-    out += f"static const unsigned int *{vname}_Em[{len(Em_indices)}] = {{ "
-    for i in range(len(Em_indices)):
-        out += f"{vname_Em[i]}, "
-    out += f"}};\n"
-    out += f"static const unsigned int {vname}_Em_nrows[{len(Em_indices)}] = {intlist2intarray([len(i) for i in Em_indices])};\n"
-
 if l > 0:
     out += f"static const unsigned int {vname}_m_indices[{len(m_indices)}] = {intlist2intarray(m_indices)};\n"
     vname_m_indices = f"{vname}_m_indices"
@@ -275,6 +193,6 @@ out += f"""
 {int_t(f"{vname}_p", mod)}
 {int_t(f"{vname}_pinv", redc(1/mod % q, q))}
 static const unsigned int {vname}_s1_indices[{len(s1_indices)}] = {intlist2intarray(s1_indices)};
-static const lin_params_t {vname} = {{{{ {name}, {deg}, {vname}_p, {vname}_pinv, {k}, {vname}_s1_indices, {len(s1_indices)}, {vname_m_indices}, {len(m_indices)},  {vname_Ps}, {matPs_nrows}, {strEs}, {strEs_nrows}, {strEm}, {strEm_nrows} }}}};
+static const lin_params_t {vname} = {{{{ {name}, {deg}, {vname}_p, {vname}_pinv, {k}, {vname}_s1_indices, {len(s1_indices)}, {vname_m_indices}, {len(m_indices)}, {vname_Ps}, {matPs_nrows}, {strEs}, {strEs_nrows}, NULL, NULL }}}};
 """
 printc(out)

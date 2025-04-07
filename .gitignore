@@ -1,6 +1,7 @@
 lazer.h
 *.a
 *.so
+**/.DS_Store
 
 scripts/lnp-codegen.sage.py
 scripts/abdlop-codegen.sage.py

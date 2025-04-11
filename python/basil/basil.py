@@ -357,7 +357,7 @@ class Client:
         # test = A_SIG * w + t_SIG
         # print(test.print()) # this should output a vector of zero polynomials
 
-        self.p2_prover.set_statement(self.A_SIG, t_SIG)
+        self.p2_prover.set_statement(A_SIG, t_SIG)
         self.p2_prover.set_witness(w)
 
         self.π_SIG = self.p2_prover.prove()
@@ -372,7 +372,7 @@ class Client:
         coder.enc_urandom(mod, c2)
         ct_bytes = coder.enc_end()
         self.ct_SIG = ct_bytes
-        print(f"[OK] Ciphertext size: {len(ct_bytes) / 1024} KB")
+        print(f"[OK] Ciphertext size: {len(ct_bytes) / 1024:.3f} KB")
 
         return (self.ct_COM[idx], self.π_COM[idx], self.ct_SIG, self.π_SIG)
 

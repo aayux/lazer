@@ -222,8 +222,8 @@ class Client:
             A_COM[pos].set_submatrix(8, 0, self.E2_COM)
             A_COM[pos].set_submatrix(8, 16, Im_COM)
             A_COM[pos].set_submatrix(8, 3 * n + 16, pIm_COM)
-            A_COM[pos].set_submatrix(3 * n + 8, 3 * n + 16, self.L if pos == 0 else self.R)
-            A_COM[pos].set_submatrix(3 * n + 8, 4 * n + 16, self.R if pos == 0 else self.L)
+            A_COM[pos].set_submatrix(3 * n + 8, 3 * n + 16, self.T.L if pos == 0 else self.T.R)
+            A_COM[pos].set_submatrix(3 * n + 8, 4 * n + 16, self.T.R if pos == 0 else self.T.L)
             A_COM[pos].set_submatrix(3 * n + 8, 5 * n + 16, -G)
         
 

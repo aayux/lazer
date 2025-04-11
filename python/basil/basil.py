@@ -567,12 +567,12 @@ class Verifier:
         A_SIG.set_submatrix(8, 2 * n + 19, pIm_SIG)
         A_SIG.set_submatrix(2 * n + 11, 2 * n + 19, self.L)
         A_SIG.set_submatrix(2 * n + 11, 3 * n + 19, self.R)
-        A_SIG.set_elem(-one, 2 * n + 11, 3 * n + 20)
+        A_SIG.set_elem(-one, 2 * n + 11, 4 * n + 19)
         
         # Set FALCON verification key elements
         b, a = self.vk[0], falcon_decode_pk(self.vk[1])
-        A_SIG.set_elem(-a, 2 * n + 11, 3 * n + 21)
-        A_SIG.set_elem(-b, 2 * n + 11, 3 * n + 22)
+        A_SIG.set_elem(-a, 2 * n + 11, 4 * n + 20)
+        A_SIG.set_elem(-b, 2 * n + 11, 4 * n + 21)
         
         # decode signature ciphertext
         c1_SIG, c2_SIG = polyvec_t(Rq, 8), polyvec_t(Rq, 2 * n + 3)

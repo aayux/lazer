@@ -137,7 +137,7 @@ class Client:
                 If None, proofs for all messages are precomputed.
         """
         self.π_COM = [[] for _ in range(B)]
-        self.ct_COM = [None for _ in range(B)]
+        self.ct_COM = [[] for _ in range(B)]
         
         print('\n-------------[ Unblind (offline) ]-------------')
 
@@ -268,7 +268,7 @@ class Client:
                 coder.enc_urandom(mod, c2)
                 ct_bytes = coder.enc_end()
                 self.ct_COM[idx].append(ct_bytes)
-                print(f"[OK] Ciphertext size: {len(ct_bytes) / 1024} KB")
+                print(f"[OK] Ciphertext size: {(len(ct_bytes) / 1024):.3f} KB")
             finally:
                 del p1_prover  # explicitly free prover
                 gc.collect()

@@ -13,19 +13,20 @@ vname = "p2_param"                                      # variable name
 
 deg   = 512                                             # ring Rq degree d
 mod   = 12289                                           # ring Rq modulus q
+tau   = 3                                               # l-inf norm for encryption secrets
 m     = 1                                               # dimension of the commited vectors
 n     = ceil(m * log(mod, 2))                           # column dimension of L, R
-dim   = (1, 2 * n + 3)                                  # dimensions of A
+dim   = (m + 2 * n + 11, 4 * n + 22)                    # dimension of A
+p = ceil(sqrt(2 * dim[1]) * tau ** 2 * sqrt(2 * dim[1] + 2 * dim[0]) + tau * sqrt(2 * dim[1] + 2 * dim[0]))
 
-wpart = [ 
-            list(range(0, ceil(log(mod, 2)))),          # partition of w
-            list(range(ceil(log(mod, 2)), 2 * ceil(log(mod, 2)))),
-            [2 * ceil(log(mod, 2)), 2 * ceil(log(mod, 2)) + 1], 
-            [2 * ceil(log(mod, 2)) + 2]
-    ] 
+wpart = [
+            list(range(0, 2 * n + 19)),                     # [ s e1 e2 ]
+            list(range(2 * n + 19, 4 * n + 19)),            # [ h x ]
+            [4 * n + 19, 4 * n + 20], [4 * n + 21]          # [ s1 s2 ], [ r ]
+    ]
 
-wl2   = [ 0, 0, sqrt(34034726), 0]                      # l2-norm bounds
-wbin  = [ 1, 1, 0, 1 ]                                  # binary coeffs
+wl2   = [ tau * sqrt(8 * deg), 0, sqrt(34034726), 0]    # l2-norm bounds
+wbin  = [ 0, 1, 0, 1 ]                                  # binary coeffs
 #wrej  = [0, 0, 0, 1]                                   # rejection sampling: on r only
 
 # Optional: some linf-norm bound on w.

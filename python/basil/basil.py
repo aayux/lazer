@@ -464,7 +464,7 @@ class Verifier:
     Class representing the verifier in the Basil protocol.
     """
     
-    def __init__(self, COMPP: bytes, PF2PP: bytes, vk: Tuple[poly_t, falcon_pkenc], 
+    def __init__(self, COMPP: bytes, PF1PP: bytes, PF2PP: bytes, vk: Tuple[poly_t, falcon_pkenc], 
                  L: polymat_t, R: polymat_t, E1: polymat_t, E2_COM: polymat_t, 
                  E2_SIG: polymat_t
             ):
@@ -473,6 +473,7 @@ class Verifier:
         
         Args:
             COMPP (bytes): Commitment parameters
+            PF1PP (bytes): First proof system parameters
             PF2PP (bytes): Second proof system parameters
             vk (Tuple[poly_t, falcon_pkenc]): Issuer's verification key
             L (polymat_t): Left matrix for Merkle tree
@@ -481,6 +482,7 @@ class Verifier:
             E2_COM (polymat_t): Second encryption matrix for commitment
             E2_SIG (polymat_t): Second encryption matrix for signature
         """
+        self.p1_verifier = lin_verifier_state_t(PF1PP, lib.get_params("p1_param"))
         self.p2_verifier = lin_verifier_state_t(PF2PP, lib.get_params("p2_param"))
         
         self.vk = vk
@@ -528,7 +530,6 @@ class Verifier:
         
         # verify each commitment proof
         for i, (ct, proof) in enumerate(zip(ct_COM, π_COM)):
-            self.p1_verifier = lin_verifier_state_t(self.PF1PP, lib.get_params("p1_param"))
             # decode ciphertext
             c1, c2 = polyvec_t(Rq, 8), polyvec_t(Rq, 3 * n)
             try:
@@ -658,12 +659,12 @@ def main():
     ct_COM, π_COM, ct_SIG, π_SIG = cli.unblind(iss_vk, iss_sig, 0)
 
     # create verifier
-    ver = Verifier(COMPP, PF2PP, iss_vk, L, R, E1, E2_COM, E2_SIG)
+    ver = Verifier(COMPP, PF1PP, PF2PP, iss_vk, L, R, E1, E2_COM, E2_SIG)
     
     print('\n--------------[ Verify ]--------------')
 
     # verify proofs including ciphertexts
-    if ver.verify(µ[0], PF1PP, ct_COM, π_COM, ct_SIG, π_SIG):
+    if ver.verify(µ[0], ct_COM, π_COM, ct_SIG, π_SIG):
         print("[OK] Verification successful!")
     else:
         print("[ERR] Verification failed")

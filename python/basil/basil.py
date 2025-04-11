@@ -333,15 +333,15 @@ class Client:
         A_SIG.set_submatrix(8, 2 * n + 19, pIm_SIG)
         A_SIG.set_submatrix(2 * n + 11, 2 * n + 19, self.T.L)
         A_SIG.set_submatrix(2 * n + 11, 3 * n + 19, self.T.R)
-        A_SIG.set_elem(-one, 2 * n + 11, 3 * n + 20)
+        A_SIG.set_elem(-one, 2 * n + 11, 4 * n + 19)
         
         print(f"Generating ZK proof of valid signature on commitment ...")
         start_time = time.time()
 
         # set the rest of the A matrix
         # A_SIG.set_submatrix(0, 2 * n, -a)
-        self.A_SIG.set_elem(-a, 2 * n + 11, 3 * n + 21)
-        self.A_SIG.set_elem(-b, 2 * n + 11, 3 * n + 22)
+        self.A_SIG.set_elem(-a, 2 * n + 11, 4 * n + 20)
+        self.A_SIG.set_elem(-b, 2 * n + 11, 4 * n + 21)
 
         # create witness vector
         partial_w = polyvec_t(Rq, 2 * n + 3, [self.__h, self.__x, s1, s2, r])
@@ -352,7 +352,7 @@ class Client:
         
         # create the target vector
         zero = polyvec_t(Rq, m)
-        t_SIG = polyvec_t(Rq, m + 3 * n + 8, [-c1, -c2, zero])
+        t_SIG = polyvec_t(Rq, m + 2 * n + 11, [-c1, -c2, zero])
 
         # test = A_SIG * w + t_SIG
         # print(test.print()) # this should output a vector of zero polynomials

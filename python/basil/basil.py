@@ -90,6 +90,7 @@ class Client:
         self.E2_SIG = E2_SIG
 
         self.p2_prover = lin_prover_state_t(self.PF2PP, lib.get_params("p2_param"))
+        self.p2_verifier = lin_verifier_state_t(self.PF2PP, lib.get_params("p2_param"))
 
     def blind(self, precompute: bool = False) -> bytes:
         """
@@ -117,6 +118,7 @@ class Client:
         # encode the commitment
         print("Encoding commitment to raw bytestream ...")
         coder = coder_t()
+        print(f"selfc_dimension:", self.c.dim)
         coder.enc_begin(22000)
         coder.enc_urandom(mod, self.c)
         c_bytes = coder.enc_end()
@@ -181,6 +183,7 @@ class Client:
         
         e2 = polyvec_t(Rq, nrows)
         e2.urandom_bnd(0, tau, self.ENCPP, 3 * phase + 7)
+        
         c1 = self.E1 * s + e1 * 1
         c2 = _E2 * s + e2 + p * µ_ENC
 
@@ -228,6 +231,7 @@ class Client:
         
 
         print(f"Generating ZK proof of opening for leaf {idx}...")
+
         proof_time = 0.
         for i in range(len(op) - 1):
             h1, h2, pos = op[i]
@@ -250,25 +254,43 @@ class Client:
 
             try:
                 # set statement and witness
+                
                 p1_prover.set_statement(A_COM[pos], t_COM)
                 p1_prover.set_witness(w)
 
                 # generate proof
+                
                 start_time = time.time()
                 _π = p1_prover.prove()
                 proof_time += time.time() - start_time
                 self.π_COM[idx].append(_π)
                 print(f"[OK] completed proof {i + 1} of {len(op) - 1} | time elapsed : {proof_time:.3f} s | size: {len(_π) / 1024:.3f} KB")
 
+                # verify proof
+                p1_verifier = lin_verifier_state_t(self.PF1PP, lib.get_params("p1_param"))
+                p1_verifier.set_statement(A_COM[pos], t_COM)
+                start_time = time.time()
+                p1_verifier.verify(_π)
+                verify_time = time.time() - start_time
+                print(f"[OK] completed verification {i + 1} of {len(op) - 1} | time elapsed: {verify_time:.3f} s")
+                del p1_verifier  # explicitly free verifier
+                
                 # encode ciphertexts to raw bytes
                 print("Encoding ciphertexts to raw bytestream ...")
+                
+
+                print(f"c2dimension:", c2.dim)
+                print(f"c1dimension:", c1.dim)
+                
                 coder = coder_t()
                 coder.enc_begin(22000)
                 coder.enc_urandom(mod, c1)
-                coder.enc_urandom(mod, c2)
+                #coder.enc_urandom(mod, c2)
                 ct_bytes = coder.enc_end()
                 self.ct_COM[idx].append(ct_bytes)
                 print(f"[OK] Ciphertext size: {(len(ct_bytes) / 1024):.3f} KB")
+                print(f"[OK] Ciphertext size estimate: {((len(ct_bytes) / 1024)/8 * 50):.3f} KB")
+                
             finally:
                 del p1_prover  # explicitly free prover
                 gc.collect()
@@ -336,16 +358,18 @@ class Client:
         A_SIG.set_elem(-one, 2 * n + 11, 4 * n + 19)
         
         print(f"Generating ZK proof of valid signature on commitment ...")
+
         start_time = time.time()
 
         # set the rest of the A matrix
         # A_SIG.set_submatrix(0, 2 * n, -a)
-        self.A_SIG.set_elem(-a, 2 * n + 11, 4 * n + 20)
-        self.A_SIG.set_elem(-b, 2 * n + 11, 4 * n + 21)
+
+        A_SIG.set_elem(-a, 2 * n + 11, 4 * n + 20)
+        A_SIG.set_elem(-b, 2 * n + 11, 4 * n + 21)
 
         # create witness vector
         partial_w = polyvec_t(Rq, 2 * n + 3, [self.__h, self.__x, s1, s2, r])
-        s, e1, e2, c1, c2 = self.__encrypt(self.E2_COM, partial_w)
+        s, e1, e2, c1, c2 = self.__encrypt(self.E2_SIG, partial_w)
         self.c1_SIG, self.c2_SIG = c1, c2
 
         w = polyvec_t(Rq, 4 * n + 22, [s, e1, e2, self.__h, self.__x, s1, s2, r])
@@ -354,8 +378,14 @@ class Client:
         zero = polyvec_t(Rq, m)
         t_SIG = polyvec_t(Rq, m + 2 * n + 11, [-c1, -c2, zero])
 
-        # test = A_SIG * w + t_SIG
-        # print(test.print()) # this should output a vector of zero polynomials
+        print(f"t_SIG dimension: {t_SIG.dim}")
+        print(f"A_SIG dimension: {A_SIG.rows}, {A_SIG.cols}")
+        print(f"w dimension: {w.dim}")
+
+
+
+        test = A_SIG * w + t_SIG
+        #print(test.print()) # this should output a vector of zero polynomials
 
         self.p2_prover.set_statement(A_SIG, t_SIG)
         self.p2_prover.set_witness(w)
@@ -364,15 +394,23 @@ class Client:
         proof_time = time.time() - start_time
         print(f"[OK] completed in: {proof_time:.3f} s | size: {len(self.π_SIG) / 1024:.3f} KB")
 
+        self.p2_verifier.set_statement(A_SIG, t_SIG)
+        self.p2_verifier.verify(self.π_SIG)
+
+
         # encode ciphertexts to raw bytes
+        
         print("Encoding ciphertexts to raw bytestream ...")
+        '''
         coder = coder_t()
         coder.enc_begin(22000)
         coder.enc_urandom(mod, c1)
         coder.enc_urandom(mod, c2)
         ct_bytes = coder.enc_end()
         self.ct_SIG = ct_bytes
-        print(f"[OK] Ciphertext size: {len(ct_bytes) / 1024:.3f} KB")
+        print(f"[OK] Ciphertext size: {len(ct_bytes) / 1024} KB")
+        '''
+        
 
         return (self.ct_COM[idx], self.π_COM[idx], self.ct_SIG, self.π_SIG)
 
@@ -464,7 +502,7 @@ class Verifier:
     Class representing the verifier in the Basil protocol.
     """
     
-    def __init__(self, COMPP: bytes, PF1PP: bytes, PF2PP: bytes, vk: Tuple[poly_t, falcon_pkenc], 
+    def __init__(self, COMPP: bytes, PF2PP: bytes, vk: Tuple[poly_t, falcon_pkenc], 
                  L: polymat_t, R: polymat_t, E1: polymat_t, E2_COM: polymat_t, 
                  E2_SIG: polymat_t
             ):
@@ -473,7 +511,6 @@ class Verifier:
         
         Args:
             COMPP (bytes): Commitment parameters
-            PF1PP (bytes): First proof system parameters
             PF2PP (bytes): Second proof system parameters
             vk (Tuple[poly_t, falcon_pkenc]): Issuer's verification key
             L (polymat_t): Left matrix for Merkle tree
@@ -482,7 +519,6 @@ class Verifier:
             E2_COM (polymat_t): Second encryption matrix for commitment
             E2_SIG (polymat_t): Second encryption matrix for signature
         """
-        self.p1_verifier = lin_verifier_state_t(PF1PP, lib.get_params("p1_param"))
         self.p2_verifier = lin_verifier_state_t(PF2PP, lib.get_params("p2_param"))
         
         self.vk = vk
@@ -530,6 +566,7 @@ class Verifier:
         
         # verify each commitment proof
         for i, (ct, proof) in enumerate(zip(ct_COM, π_COM)):
+            self.p1_verifier = lin_verifier_state_t(self.PF1PP, lib.get_params("p1_param"))
             # decode ciphertext
             c1, c2 = polyvec_t(Rq, 8), polyvec_t(Rq, 3 * n)
             try:
@@ -568,12 +605,12 @@ class Verifier:
         A_SIG.set_submatrix(8, 2 * n + 19, pIm_SIG)
         A_SIG.set_submatrix(2 * n + 11, 2 * n + 19, self.L)
         A_SIG.set_submatrix(2 * n + 11, 3 * n + 19, self.R)
-        A_SIG.set_elem(-one, 2 * n + 11, 4 * n + 19)
+        A_SIG.set_elem(-one, 2 * n + 11, 3 * n + 20)
         
         # Set FALCON verification key elements
         b, a = self.vk[0], falcon_decode_pk(self.vk[1])
-        A_SIG.set_elem(-a, 2 * n + 11, 4 * n + 20)
-        A_SIG.set_elem(-b, 2 * n + 11, 4 * n + 21)
+        A_SIG.set_elem(-a, 2 * n + 11, 3 * n + 21)
+        A_SIG.set_elem(-b, 2 * n + 11, 3 * n + 22)
         
         # decode signature ciphertext
         c1_SIG, c2_SIG = polyvec_t(Rq, 8), polyvec_t(Rq, 2 * n + 3)
@@ -659,12 +696,12 @@ def main():
     ct_COM, π_COM, ct_SIG, π_SIG = cli.unblind(iss_vk, iss_sig, 0)
 
     # create verifier
-    ver = Verifier(COMPP, PF1PP, PF2PP, iss_vk, L, R, E1, E2_COM, E2_SIG)
+    ver = Verifier(COMPP, PF2PP, iss_vk, L, R, E1, E2_COM, E2_SIG)
     
     print('\n--------------[ Verify ]--------------')
 
     # verify proofs including ciphertexts
-    if ver.verify(µ[0], ct_COM, π_COM, ct_SIG, π_SIG):
+    if ver.verify(µ[0], PF1PP, ct_COM, π_COM, ct_SIG, π_SIG):
         print("[OK] Verification successful!")
     else:
         print("[ERR] Verification failed")

@@ -29,12 +29,13 @@ dim   = (m + 3 * n + 8, 6 * n + 16)                     # dimension of A
 # same for the randomness of c2
 p = ceil(sqrt(2 * dim[1]) * tau ** 2 * sqrt(2 * dim[1] + 2 * dim[0]) + tau * sqrt(2 * dim[1] + 2 * dim[0]))
 
-wpart = [   
-            list(range(0, 16 + 3 * n)),                 # [ s e1 e2 ]
+wpart = [
+            list(range(0, 16)),                         # [ s e1 ]
+            list(range(16, 16 + 3 * n)),                # e2
             list(range(16 + 3 * n, 16 + 6 * n)),        # [ h1 h2 h3 ]
     ]
-wl2   = [ tau * sqrt(8 * deg), 0 ]  # l2-norm bounds
-wbin  = [ 0, 1 ]                    # binary coeffs
+wl2   = [ tau * sqrt(8 * deg), tau * sqrt(3 * n * deg), 0 ]  # l2-norm bounds
+wbin  = [ 0, 0, 1 ]                    # binary coeffs
 
 # Optional: some linf-norm bound on x.
 # Tighter bounds result in smaller proofs.
